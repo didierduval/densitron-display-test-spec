@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTOL Display Validation Specification</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* Slate 50 */
+            color: #334155; /* Slate 700 */
+        }
+
+        /* Chart Container Styling - MANDATORY */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+
+        /* Custom Utilities */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Sidebar Nav Item Styling */
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #64748b; /* Slate 500 */
+            border-left: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .sidebar-link:hover {
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .sidebar-link.active {
+            background-color: #eff6ff; /* Blue 50 */
+            color: #2563eb; /* Blue 600 */
+            border-left-color: #2563eb;
+        }
+
+        .nav-item.active {
+            border-bottom: 2px solid #0f172a;
+            color: #0f172a;
+            font-weight: 600;
+        }
+
+        /* Screen Simulation for Metrology */
+        .display-mockup {
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 8px;
+            border: 4px solid #333;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .measurement-point {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background-color: rgba(34, 197, 94, 0.8); /* Green-500 */
+            border: 2px solid #fff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        .measurement-point:hover {
+            transform: translate(-50%, -50%) scale(1.2);
+            background-color: #16a34a; /* Green-600 */
+            z-index: 20;
+        }
+
+        /* Pattern Simulation Box */
+        .pattern-box {
+            transition: background-color 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            background-size: cover;
+            background-position: center;
+        }
+        
+        .checkerboard-bg {
+             /* Updated to use provided image with a high-contrast black/white fallback */
+            background-color: #fff;
+            background-image: url('chess.png'), conic-gradient(#000 0.25turn, #fff 0.25turn 0.5turn, #000 0.5turn 0.75turn, #fff 0.75turn);
+            background-size: cover, 50px 50px;
+            background-repeat: no-repeat, repeat;
+            background-blend-mode: normal;
+        }
+        
+        .spectrum-bg {
+            background-image: url('spectrum.png'), linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet);
+            background-size: cover, cover;
+        }
+
+    </style>
+    <!-- Chosen Palette: Technical Neutral (Slate/Gray) with Functional Accents (Green/Blue/Orange) -->
+    <!-- Application Structure Plan: 
+         1. Header: Branding and Mobile Navigation.
+         2. Main Layout (Grid): 
+            - Sidebar (Left): Sticky Index of Content (Sync-Scroll).
+            - Content (Right): All test plan sections.
+         3. Sections:
+            - Overview: Dashboard metrics.
+            - Setup: Interactive batch config.
+            - Stimuli: Clickable cycle list + Live Simulation.
+            - Metrology: Interactive spot map.
+            - Failures: Cards for failure modes.
+            - Reporting: Charts and data formats.
+    -->
+    <!-- Visualization & Content Choices:
+         - Sidebar: Improves navigation on long technical docs.
+         - Clickable List: Allows users to manually jump steps in the simulation.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-lg bg-slate-900 text-white font-bold text-xl mr-3">
+                        <i class="fa-solid fa-flask"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-slate-900">HTOL Display Spec</h1>
+                        <p class="text-xs text-slate-500">v1.2 | 2024-05-21 | High-Temperature Operating Life</p>
+                    </div>
+                </div>
+                <!-- Top Nav only visible on Tablet/Mobile (hidden on large screens where sidebar exists) -->
+                <nav class="hidden md:flex lg:hidden space-x-8">
+                    <button onclick="scrollToSection('overview')" class="nav-item active text-sm font-medium hover:text-slate-900 px-1 pt-1">Overview</button>
+                    <button onclick="scrollToSection('setup')" class="nav-item text-sm font-medium text-slate-500 hover:text-slate-900 px-1 pt-1">Setup</button>
+                    <button onclick="scrollToSection('metrology')" class="nav-item text-sm font-medium text-slate-500 hover:text-slate-900 px-1 pt-1">Metrology</button>
+                    <button onclick="scrollToSection('failures')" class="nav-item text-sm font-medium text-slate-500 hover:text-slate-900 px-1 pt-1">Failures</button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            
+            <div class="lg:grid lg:grid-cols-12 lg:gap-8">
+                
+                <!-- Sidebar Navigation (Desktop Only) -->
+                <aside class="hidden lg:block lg:col-span-2 relative">
+                    <nav class="sticky top-24 overflow-y-auto" style="max-height: calc(100vh - 8rem);">
+                        <p class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Contents</p>
+                        <ul class="space-y-1">
+                            <li>
+                                <a href="#overview" id="link-overview" class="sidebar-link rounded-md">
+                                    <i class="fa-solid fa-chart-pie w-5 text-center mr-2 text-xs opacity-70"></i> Overview
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#setup" id="link-setup" class="sidebar-link rounded-md">
+                                    <i class="fa-solid fa-sliders w-5 text-center mr-2 text-xs opacity-70"></i> Setup
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#stimuli" id="link-stimuli" class="sidebar-link rounded-md">
+                                    <i class="fa-solid fa-play w-5 text-center mr-2 text-xs opacity-70"></i> Stimuli Cycle
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#metrology" id="link-metrology" class="sidebar-link rounded-md">
+                                    <i class="fa-solid fa-ruler-combined w-5 text-center mr-2 text-xs opacity-70"></i> Metrology
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#failures" id="link-failures" class="sidebar-link rounded-md">
+                                    <i class="fa-solid fa-triangle-exclamation w-5 text-center mr-2 text-xs opacity-70"></i> Failure Modes
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#reporting" id="link-reporting" class="sidebar-link rounded-md">
+                                    <i class="fa-solid fa-file-csv w-5 text-center mr-2 text-xs opacity-70"></i> Reporting
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </aside>
+
+                <!-- Content Column -->
+                <div class="lg:col-span-10 space-y-12">
+
+                    <!-- Section 1: Overview Dashboard -->
+                    <section id="overview" class="scroll-mt-24 animate-fade-in content-section">
+                        <div class="mb-6">
+                            <h2 class="text-2xl font-bold text-slate-900">Executive Summary</h2>
+                            <p class="mt-2 text-slate-600 max-w-3xl">
+                                This High-Temperature Operating Life (HTOL) test evaluates the optical stability of display modules under prolonged thermal stress. 
+                                The primary goal is to identify degradation mechanisms such as color shift, luminance decay, or mura development over a 16-week period.
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <!-- Stat Card 1 -->
+                            <div class="glass-panel p-6 rounded-xl border-l-4 border-blue-500">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-slate-500">Total Duration</p>
+                                        <p class="text-2xl font-bold text-slate-900">16 Weeks</p>
+                                    </div>
+                                    <div class="bg-blue-100 p-3 rounded-full text-blue-600">
+                                        <i class="fa-regular fa-clock"></i>
+                                    </div>
+                                </div>
+                                <p class="mt-2 text-xs text-slate-500">2,688 Hours Continuous</p>
+                            </div>
+
+                            <!-- Stat Card 2 -->
+                            <div class="glass-panel p-6 rounded-xl border-l-4 border-orange-500">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-slate-500">Stress Temps</p>
+                                        <p class="text-2xl font-bold text-slate-900">70°C & 80°C</p>
+                                    </div>
+                                    <div class="bg-orange-100 p-3 rounded-full text-orange-600">
+                                        <i class="fa-solid fa-temperature-high"></i>
+                                    </div>
+                                </div>
+                                <p class="mt-2 text-xs text-slate-500">Constant Thermal Stress</p>
+                            </div>
+
+                            <!-- Stat Card 3 -->
+                            <div class="glass-panel p-6 rounded-xl border-l-4 border-emerald-500">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-slate-500">Sample Size</p>
+                                        <p class="text-2xl font-bold text-slate-900">40 Units</p>
+                                    </div>
+                                    <div class="bg-emerald-100 p-3 rounded-full text-emerald-600">
+                                        <i class="fa-solid fa-layer-group"></i>
+                                    </div>
+                                </div>
+                                <p class="mt-2 text-xs text-slate-500">2 Batches of 20</p>
+                            </div>
+
+                            <!-- Stat Card 4 -->
+                            <div class="glass-panel p-6 rounded-xl border-l-4 border-purple-500">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-slate-500">Driving</p>
+                                        <p class="text-2xl font-bold text-slate-900">100%</p>
+                                    </div>
+                                    <div class="bg-purple-100 p-3 rounded-full text-purple-600">
+                                        <i class="fa-solid fa-sun"></i>
+                                    </div>
+                                </div>
+                                <p class="mt-2 text-xs text-slate-500">Max Brightness Fixed</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section 2: Test Setup (Optimized) -->
+                    <section id="setup" class="scroll-mt-24 pt-8 border-t border-slate-200 content-section">
+                        <div class="mb-6">
+                            <h2 class="text-2xl font-bold text-slate-900">Configuration & Environment</h2>
+                            <p class="mt-2 text-slate-600">
+                                Test samples are divided into two batches. Both batches share identical driving and mounting configurations, differing only in thermal stress application.
+                            </p>
+                        </div>
+
+                        <div class="glass-panel rounded-xl overflow-hidden shadow-sm">
+                            <!-- Shared Header -->
+                            <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="bg-slate-700 p-2 rounded-lg"><i class="fa-solid fa-sliders"></i></div>
+                                    <div>
+                                        <h3 class="font-bold text-lg">Common Configuration</h3>
+                                        <p class="text-slate-400 text-xs">Applied to all 40 Units (Batch A & Batch B)</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                <!-- Config Item 1 -->
+                                <div class="border-l-2 border-slate-200 pl-4">
+                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Configuration</p>
+                                    <p class="font-semibold text-slate-800">Full Module Assembly</p>
+                                </div>
+                                <!-- Config Item 2 -->
+                                <div class="border-l-2 border-slate-200 pl-4">
+                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Driving Condition</p>
+                                    <p class="font-semibold text-slate-800">100% Brightness</p>
+                                    <p class="text-xs text-slate-500">Fixed Max Duty Cycle</p>
+                                </div>
+                                <!-- Config Item 3 -->
+                                <div class="border-l-2 border-slate-200 pl-4">
+                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Power Supply</p>
+                                    <p class="font-semibold text-slate-800">Standard Vdd / Vbl</p>
+                                    <p class="text-xs text-slate-500">Monitored & Stable</p>
+                                </div>
+                                <!-- Config Item 4 -->
+                                <div class="border-l-2 border-slate-200 pl-4">
+                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Airflow</p>
+                                    <p class="font-semibold text-slate-800">Low Velocity</p>
+                                    <p class="text-xs text-slate-500">No direct impingement</p>
+                                </div>
+                            </div>
+
+                            <!-- Split Section -->
+                            <div class="bg-slate-50 border-t border-slate-200 p-6">
+                                <h4 class="font-bold text-slate-800 mb-4 flex items-center">
+                                    <i class="fa-solid fa-temperature-arrow-up text-red-500 mr-2"></i> 
+                                    Thermal Stress Conditions (Constant)
+                                </h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <!-- Batch A -->
+                                    <div class="bg-white border border-orange-200 rounded-lg p-4 flex justify-between items-center shadow-sm relative overflow-hidden group">
+                                        <div class="absolute inset-0 border-l-4 border-orange-400"></div>
+                                        <div class="pl-4">
+                                            <span class="text-xs font-bold text-orange-600 uppercase">Batch A (20 Units)</span>
+                                            <div class="text-2xl font-bold text-slate-800">70°C <span class="text-sm text-slate-400 font-normal">± 2°C</span></div>
+                                        </div>
+                                        <div class="h-10 w-10 bg-orange-50 rounded-full flex items-center justify-center text-orange-500">
+                                            <i class="fa-solid fa-fire-burner"></i>
+                                        </div>
+                                    </div>
+
+                                    <!-- Batch B -->
+                                    <div class="bg-white border border-red-200 rounded-lg p-4 flex justify-between items-center shadow-sm relative overflow-hidden group">
+                                        <div class="absolute inset-0 border-l-4 border-red-500"></div>
+                                        <div class="pl-4">
+                                            <span class="text-xs font-bold text-red-600 uppercase">Batch B (20 Units)</span>
+                                            <div class="text-2xl font-bold text-slate-800">80°C <span class="text-sm text-slate-400 font-normal">± 2°C</span></div>
+                                        </div>
+                                        <div class="h-10 w-10 bg-red-50 rounded-full flex items-center justify-center text-red-500">
+                                            <i class="fa-solid fa-fire"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section 3: Optical Stimuli -->
+                    <section id="stimuli" class="scroll-mt-24 pt-8 border-t border-slate-200 content-section">
+                        <div class="mb-6">
+                            <h2 class="text-2xl font-bold text-slate-900">Aging Pattern Cycle</h2>
+                            <p class="mt-2 text-slate-600">
+                                To prevent image retention, displays must continuously cycle through a 60-second loop containing 6 distinct patterns.
+                                Use the simulation below to verify the sequence.
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                            <!-- Text Description -->
+                            <div class="glass-panel p-6 rounded-xl col-span-1">
+                                <h3 class="font-bold text-lg mb-4">Cycle Logic (60s Total)</h3>
+                                <p class="text-xs text-slate-500 mb-3"><i class="fa-solid fa-hand-pointer mr-1"></i> Click any step to jump to it.</p>
+                                <ul class="space-y-3 text-sm">
+                                    <li id="step-0" onclick="jumpToStep(0)" class="cursor-pointer hover:bg-slate-50 flex items-center p-2 rounded transition-colors bg-slate-100 border-l-4 border-slate-800">
+                                        <span class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs mr-3 font-bold">1</span>
+                                        <div>
+                                            <span class="block font-bold">Chessboard</span>
+                                            <span class="text-xs text-slate-500">10 Seconds</span>
+                                        </div>
+                                    </li>
+                                    <li id="step-1" onclick="jumpToStep(1)" class="cursor-pointer hover:bg-slate-50 flex items-center p-2 rounded transition-colors">
+                                        <span class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs mr-3 font-bold">2</span>
+                                        <div>
+                                            <span class="block font-bold">Spectrum</span>
+                                            <span class="text-xs text-slate-500">10 Seconds</span>
+                                        </div>
+                                    </li>
+                                    <li id="step-2" onclick="jumpToStep(2)" class="cursor-pointer hover:bg-slate-50 flex items-center p-2 rounded transition-colors">
+                                        <span class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs mr-3 font-bold">3</span>
+                                        <div>
+                                            <span class="block font-bold">Full White</span>
+                                            <span class="text-xs text-slate-500">10 Seconds (255, 255, 255)</span>
+                                        </div>
+                                    </li>
+                                    <li id="step-3" onclick="jumpToStep(3)" class="cursor-pointer hover:bg-slate-50 flex items-center p-2 rounded transition-colors">
+                                        <span class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs mr-3 font-bold">4</span>
+                                        <div>
+                                            <span class="block font-bold">Full Red</span>
+                                            <span class="text-xs text-slate-500">10 Seconds (255, 0, 0)</span>
+                                        </div>
+                                    </li>
+                                    <li id="step-4" onclick="jumpToStep(4)" class="cursor-pointer hover:bg-slate-50 flex items-center p-2 rounded transition-colors">
+                                        <span class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs mr-3 font-bold">5</span>
+                                        <div>
+                                            <span class="block font-bold">Full Green</span>
+                                            <span class="text-xs text-slate-500">10 Seconds (0, 255, 0)</span>
+                                        </div>
+                                    </li>
+                                    <li id="step-5" onclick="jumpToStep(5)" class="cursor-pointer hover:bg-slate-50 flex items-center p-2 rounded transition-colors">
+                                        <span class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs mr-3 font-bold">6</span>
+                                        <div>
+                                            <span class="block font-bold">Full Blue</span>
+                                            <span class="text-xs text-slate-500">10 Seconds (0, 0, 255)</span>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <!-- Visual Simulation -->
+                            <div class="col-span-1 lg:col-span-2 flex flex-col items-center">
+                                <div class="relative w-full max-w-lg mb-4">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <h4 class="font-semibold text-slate-700">Visual Simulation</h4>
+                                        <div class="flex space-x-2">
+                                            <button id="playBtn" class="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700 transition">
+                                                <i class="fa-solid fa-play mr-1"></i> Play
+                                            </button>
+                                            <button id="pauseBtn" class="bg-slate-200 text-slate-700 px-3 py-1 rounded text-xs hover:bg-slate-300 transition">
+                                                <i class="fa-solid fa-pause mr-1"></i> Pause
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Screen Mockup -->
+                                    <div id="sim-screen" class="display-mockup pattern-box border-slate-800 checkerboard-bg h-64 w-full">
+                                        <span id="sim-label" class="bg-black/50 px-4 py-2 rounded text-white backdrop-blur-sm">Chessboard</span>
+                                    </div>
+                                    
+                                    <!-- Progress Bar -->
+                                    <div class="w-full bg-slate-200 rounded-full h-2.5 mt-4">
+                                        <div id="sim-progress" class="bg-blue-600 h-2.5 rounded-full transition-all duration-100" style="width: 0%"></div>
+                                    </div>
+                                    <p class="text-xs text-center mt-1 text-slate-400">Simulation runs at 5x speed for demo purposes</p>
+                                </div>
+
+                                <!-- Donut Chart -->
+                                <div class="chart-container" style="height: 200px; max-width: 200px;">
+                                    <canvas id="cycleChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section 4: Metrology -->
+                    <section id="metrology" class="scroll-mt-24 pt-8 border-t border-slate-200 content-section">
+                        <div class="mb-6">
+                            <h2 class="text-2xl font-bold text-slate-900">Measurement Procedure</h2>
+                            <p class="mt-2 text-slate-600">
+                                Weekly measurements using a Spectroradiometer (e.g., CA-410) perpendicular to the surface.
+                                Explore the measurement spots below.
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <!-- Interactive Map -->
+                            <div class="glass-panel p-6 rounded-xl">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="font-bold text-lg">Spot Locations</h3>
+                                    <div class="inline-flex rounded-md shadow-sm" role="group">
+                                        <button type="button" onclick="setSpots(5)" id="btn-5" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-blue-600 rounded-l-lg hover:bg-blue-700">
+                                            5-Point
+                                        </button>
+                                        <button type="button" onclick="setSpots(9)" id="btn-9" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-r-lg hover:bg-slate-50">
+                                            9-Point
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="relative display-mockup w-full h-80 bg-slate-800 border-slate-600">
+                                    <!-- Grid Lines for visual reference -->
+                                    <div class="absolute top-1/2 w-full h-px bg-slate-700/50 transform -translate-y-1/2"></div>
+                                    <div class="absolute left-1/2 h-full w-px bg-slate-700/50 transform -translate-x-1/2"></div>
+
+                                    <!-- Spots will be injected here by JS -->
+                                    <div id="spot-container" class="w-full h-full relative"></div>
+                                </div>
+                                <div class="mt-4 bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-800">
+                                    <i class="fa-solid fa-circle-info mr-2"></i>
+                                    <span id="spot-info">Hover over a spot to see its coordinates.</span>
+                                </div>
+                            </div>
+
+                            <!-- Metrics Table -->
+                            <div class="space-y-6">
+                                <div class="glass-panel p-6 rounded-xl">
+                                    <h3 class="font-bold text-lg mb-3">What to Measure</h3>
+                                    <p class="text-sm text-slate-500 mb-4">At <strong>each</strong> spot defined on the left, measure the following for T0, Weekly, and Final intervals.</p>
+                                    
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full text-sm text-left">
+                                            <thead class="bg-slate-100 text-slate-700 font-semibold">
+                                                <tr>
+                                                    <th class="px-4 py-2 rounded-l-lg">Pattern</th>
+                                                    <th class="px-4 py-2">RGB Value</th>
+                                                    <th class="px-4 py-2 rounded-r-lg">Metrics</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-100">
+                                                <tr>
+                                                    <td class="px-4 py-3"><span class="inline-block w-3 h-3 rounded-full bg-white border border-slate-300 mr-2"></span>White</td>
+                                                    <td class="font-mono text-xs text-slate-500">(255, 255, 255)</td>
+                                                    <td>
+                                                        <div class="group relative inline-block cursor-help border-b border-dotted border-slate-400">
+                                                            Lv, x, y
+                                                            <div class="invisible group-hover:visible absolute bottom-full left-1/2 transform -translate-x-1/2 w-48 bg-slate-800 text-white text-xs rounded p-2 mb-2 z-50">
+                                                                <strong>Lv:</strong> Luminance (Brightness)<br>
+                                                                <strong>x, y:</strong> Color Coordinates<br>
+                                                                Both required to detect aging.
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-4 py-3"><span class="inline-block w-3 h-3 rounded-full bg-red-500 mr-2"></span>Red</td>
+                                                    <td class="font-mono text-xs text-slate-500">(255, 0, 0)</td>
+                                                    <td>Lv, x, y</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-4 py-3"><span class="inline-block w-3 h-3 rounded-full bg-green-500 mr-2"></span>Green</td>
+                                                    <td class="font-mono text-xs text-slate-500">(0, 255, 0)</td>
+                                                    <td>Lv, x, y</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="px-4 py-3"><span class="inline-block w-3 h-3 rounded-full bg-blue-500 mr-2"></span>Blue</td>
+                                                    <td class="font-mono text-xs text-slate-500">(0, 0, 255)</td>
+                                                    <td>Lv, x, y</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div class="glass-panel p-6 rounded-xl border-l-4 border-yellow-500">
+                                    <h3 class="font-bold text-lg text-yellow-800 mb-2">Important Note</h3>
+                                    <p class="text-sm text-slate-600">
+                                        Displays should be returned to room temperature (25°C) before measurement to avoid temporary thermal derating, unless "hot measurement" is explicitly requested.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section 5: Failures (NEW) -->
+                    <section id="failures" class="scroll-mt-24 pt-8 border-t border-slate-200 content-section">
+                        <div class="mb-6">
+                            <h2 class="text-2xl font-bold text-slate-900">Failure Modes & Monitoring</h2>
+                            <p class="mt-2 text-slate-600">
+                                The following criteria constitute a failure or abnormality and must be logged weekly. Any unit exhibiting these symptoms should be flagged immediately.
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <!-- 1. Luminance Drop -->
+                            <div class="glass-panel p-5 rounded-xl border-l-4 border-red-500">
+                                <div class="flex items-center mb-2">
+                                    <span class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center mr-3"><i class="fa-solid fa-chart-line-down"></i></span>
+                                    <h3 class="font-bold text-slate-800">Fast Degradation</h3>
+                                </div>
+                                <p class="text-sm text-slate-600">Luminance ($L_v$) drop <br><span class="font-bold text-red-600">> 2.5% per week</span>.</p>
+                            </div>
+
+                            <!-- 2. Dead Pixel -->
+                            <div class="glass-panel p-5 rounded-xl border-l-4 border-slate-500">
+                                <div class="flex items-center mb-2">
+                                    <span class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center mr-3"><i class="fa-solid fa-braille"></i></span>
+                                    <h3 class="font-bold text-slate-800">Dead Pixel</h3>
+                                </div>
+                                <p class="text-sm text-slate-600">Any permanently stuck (bright/dark) sub-pixel visible on RGBW patterns.</p>
+                            </div>
+
+                            <!-- 3. Yellow Spots -->
+                            <div class="glass-panel p-5 rounded-xl border-l-4 border-yellow-500">
+                                <div class="flex items-center mb-2">
+                                    <span class="w-8 h-8 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center mr-3"><i class="fa-solid fa-sun"></i></span>
+                                    <h3 class="font-bold text-slate-800">Yellow Spots</h3>
+                                </div>
+                                <p class="text-sm text-slate-600">Localized discoloration, typically due to polarizer or LC degradation.</p>
+                            </div>
+
+                            <!-- 4. Ghosting -->
+                            <div class="glass-panel p-5 rounded-xl border-l-4 border-purple-500">
+                                <div class="flex items-center mb-2">
+                                    <span class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mr-3"><i class="fa-solid fa-ghost"></i></span>
+                                    <h3 class="font-bold text-slate-800">Ghosting Effect</h3>
+                                </div>
+                                <p class="text-sm text-slate-600">Image retention or sticking when switching patterns (e.g., Chess -> Gray).</p>
+                            </div>
+
+                            <!-- 5. Flickering -->
+                            <div class="glass-panel p-5 rounded-xl border-l-4 border-orange-500">
+                                <div class="flex items-center mb-2">
+                                    <span class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center mr-3"><i class="fa-solid fa-bolt"></i></span>
+                                    <h3 class="font-bold text-slate-800">Backlight Flickering</h3>
+                                </div>
+                                <p class="text-sm text-slate-600">Visible instability or shimmering in backlight intensity.</p>
+                            </div>
+
+                            <!-- 6. Color Shift -->
+                            <div class="glass-panel p-5 rounded-xl border-l-4 border-blue-500">
+                                <div class="flex items-center mb-2">
+                                    <span class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-3"><i class="fa-solid fa-palette"></i></span>
+                                    <h3 class="font-bold text-slate-800">Color Shift</h3>
+                                </div>
+                                <p class="text-sm text-slate-600">Significant drift in $\Delta u'v'$ or x,y coordinates on White/RGB.</p>
+                            </div>
+
+                            <!-- 7. Touch Screen -->
+                            <div class="glass-panel p-5 rounded-xl border-l-4 border-green-500 col-span-1 md:col-span-2">
+                                <div class="flex items-center mb-2">
+                                    <span class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center mr-3"><i class="fa-solid fa-fingerprint"></i></span>
+                                    <h3 class="font-bold text-slate-800">Touch Functionality</h3>
+                                </div>
+                                <p class="text-sm text-slate-600">
+                                    Must be verified at all <strong>9 Metrology Spots</strong> (A-I). Verify touch registration and linearity.
+                                </p>
+                            </div>
+
+                            <!-- 8. Electronic -->
+                            <div class="glass-panel p-5 rounded-xl border-l-4 border-gray-800">
+                                <div class="flex items-center mb-2">
+                                    <span class="w-8 h-8 rounded-full bg-gray-200 text-gray-800 flex items-center justify-center mr-3"><i class="fa-solid fa-microchip"></i></span>
+                                    <h3 class="font-bold text-slate-800">Electronic Failure</h3>
+                                </div>
+                                <p class="text-sm text-slate-600">No boot, sync loss, driver IC failure, or communication errors.</p>
+                            </div>
+
+                            <!-- 9. Matrix Shadow (Popup) -->
+                            <div class="glass-panel p-5 rounded-xl border-l-4 border-indigo-500 col-span-1 md:col-span-3">
+                                <div class="flex flex-col md:flex-row gap-4 items-start">
+                                    <div class="flex-shrink-0">
+                                        <div class="w-16 h-16 bg-slate-200 rounded-lg flex items-center justify-center overflow-hidden border border-slate-300 cursor-pointer hover:ring-2 hover:ring-indigo-400 transition-all" onclick="openImageModal('popup.png')">
+                                            <img src="popup.png" alt="Popup Reference" class="w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity" onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+                                            <i class="fa-regular fa-image text-2xl text-slate-400 hidden"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-slate-800 mb-1">Matrix Shadow Test</h3>
+                                        <p class="text-sm text-slate-600 mb-2">
+                                            Visually inspect for "Matrix Shadow" or crosstalk artifacts. This must be tested using the reference image <code>popup.png</code>.
+                                            <span class="text-indigo-600 font-semibold cursor-pointer text-xs" onclick="openImageModal('popup.png')">(Click thumbnail to enlarge)</span>
+                                        </p>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                            Visual Check
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Additional -->
+                            <div class="glass-panel p-5 rounded-xl border-l-4 border-rose-400">
+                                <h3 class="font-bold text-slate-800 mb-2 text-sm">Other Defects</h3>
+                                <ul class="text-xs text-slate-600 list-disc list-inside space-y-1">
+                                    <li>Polarizer Delamination (Bubbles)</li>
+                                    <li>Mura / Clouding</li>
+                                    <li>Bezel Separation</li>
+                                </ul>
+                            </div>
+
+                        </div>
+                    </section>
+
+                    <!-- Section 6: Reporting -->
+                    <section id="reporting" class="scroll-mt-24 pt-8 border-t border-slate-200 content-section">
+                        <div class="mb-6">
+                            <h2 class="text-2xl font-bold text-slate-900">Data Reporting & Formulas</h2>
+                            <p class="mt-2 text-slate-600">
+                                The manufacturer must provide raw data weekly. Key Performance Indicators (KPIs) are calculated as follows.
+                            </p>
+                        </div>
+
+                        <!-- NEW: CSV Requirement Block -->
+                        <div class="mb-8 bg-slate-800 text-white p-6 rounded-xl shadow-lg border border-slate-700 flex items-start gap-4">
+                            <div class="mt-1 text-emerald-400 text-xl"><i class="fa-solid fa-file-csv"></i></div>
+                            <div>
+                                <h3 class="font-bold text-lg text-emerald-400 mb-1">Mandatory Data Format</h3>
+                                <p class="text-slate-300 text-sm">
+                                    Raw measurement data must be delivered in <strong>CSV format</strong>. 
+                                    Structure must be flat: <strong>1 measurement per line</strong>.
+                                </p>
+                                <div class="mt-3 bg-slate-900 p-3 rounded font-mono text-xs text-slate-400 border border-slate-700">
+                                    Timestamp, UnitID, Batch, Spot(A-I), Pattern(W/R/G/B), Lv, x, y, Temperature
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <!-- Formulas -->
+                            <div class="space-y-4">
+                                <div class="glass-panel p-6 rounded-xl">
+                                    <h3 class="font-bold text-blue-900 mb-2">Luminance Degradation (%)</h3>
+                                    <code class="block bg-slate-900 text-green-400 p-3 rounded-lg font-mono text-sm mb-2">
+                                        (L_current / L_initial) * 100
+                                    </code>
+                                    <p class="text-xs text-slate-500">Tracks how much brightness is retained compared to T0.</p>
+                                </div>
+
+                                <div class="glass-panel p-6 rounded-xl">
+                                    <h3 class="font-bold text-blue-900 mb-2">Uniformity (%)</h3>
+                                    <code class="block bg-slate-900 text-green-400 p-3 rounded-lg font-mono text-sm mb-2">
+                                        (L_min / L_max) * 100
+                                    </code>
+                                    <p class="text-xs text-slate-500">Calculated across the 5 or 9 measured spots.</p>
+                                </div>
+
+                                <div class="glass-panel p-6 rounded-xl">
+                                    <h3 class="font-bold text-blue-900 mb-2">Color Shift</h3>
+                                    <code class="block bg-slate-900 text-green-400 p-3 rounded-lg font-mono text-sm mb-2">
+                                        Δu'v' vs T0 White Point
+                                    </code>
+                                    <p class="text-xs text-slate-500">Measures the drift in color accuracy over time.</p>
+                                </div>
+                            </div>
+
+                            <!-- Visualization Example -->
+                            <div class="glass-panel p-6 rounded-xl">
+                                <h3 class="font-bold text-lg mb-4">Example Degradation Curve</h3>
+                                <p class="text-xs text-slate-500 mb-4">Below is a hypothetical example of the expected luminance drop-off visualization.</p>
+                                <div class="chart-container">
+                                    <canvas id="reportingChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-8 mt-12">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p class="text-sm">Display Reliability Test Plan Specification v1.2</p>
+            <p class="text-xs mt-2">&copy; 2024 Engineering Dept.</p>
+        </div>
+    </footer>
+
+    <!-- Image Modal -->
+    <div id="image-modal" class="fixed inset-0 z-[100] hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm transition-opacity" onclick="closeImageModal()"></div>
+
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-4xl">
+                     <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="text-lg font-semibold leading-6 text-slate-900" id="modal-title">Reference Image</h3>
+                            <button type="button" class="text-slate-400 hover:text-slate-500 transition-colors" onclick="closeImageModal()">
+                                <span class="sr-only">Close</span>
+                                <i class="fa-solid fa-xmark text-2xl"></i>
+                            </button>
+                        </div>
+                        <div class="mt-2 flex justify-center bg-slate-100 rounded-lg p-2 border border-slate-200">
+                            <img id="modal-image" src="" alt="Full size reference" class="max-h-[80vh] w-auto object-contain">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Navigation Logic ---
+        function scrollToSection(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                // Offset for fixed header (approx 100px to land nicely)
+                const headerOffset = 100;
+                const elementPosition = element.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: "smooth"
+                });
+            }
+        }
+
+        // --- Cycle Visualization Logic ---
+        const steps = [
+            { label: 'Chessboard', class: 'checkerboard-bg', color: '#e2e8f0' },
+            { label: 'Spectrum', class: 'spectrum-bg', color: '#a855f7' },
+            { label: 'Full White', bg: 'white', color: '#ffffff' },
+            { label: 'Full Red', bg: 'red', color: '#ef4444' },
+            { label: 'Full Green', bg: '#22c55e', color: '#22c55e' },
+            { label: 'Full Blue', bg: 'blue', color: '#3b82f6' }
+        ];
+
+        let currentStepIndex = 0;
+        let isPlaying = false;
+        let cycleInterval;
+        const speedMultiplier = 2000; // 2 seconds per step for demo (instead of 10s)
+
+        const simScreen = document.getElementById('sim-screen');
+        const simLabel = document.getElementById('sim-label');
+        const simProgress = document.getElementById('sim-progress');
+        const stepElements = document.querySelectorAll('[id^="step-"]');
+
+        // Function to manually jump to a step
+        function jumpToStep(index) {
+            currentStepIndex = index;
+            updateSimulation();
+            
+            // If playing, reset interval to ensure full duration for the new step
+            if (isPlaying) {
+                clearInterval(cycleInterval);
+                cycleInterval = setInterval(updateSimulation, speedMultiplier);
+            }
+        }
+
+        function updateSimulation() {
+            // Reset previous step style
+            stepElements.forEach(el => {
+                el.classList.remove('bg-blue-50', 'border-l-4', 'border-blue-500');
+                el.classList.add('bg-white'); // Ensure hover state background isn't stuck
+            });
+
+            // Activate current step
+            const currentStepEl = document.getElementById(`step-${currentStepIndex}`);
+            if (currentStepEl) {
+                currentStepEl.classList.remove('bg-white');
+                currentStepEl.classList.add('bg-blue-50', 'border-l-4', 'border-blue-500');
+            }
+
+            // Update Screen
+            const stepData = steps[currentStepIndex];
+            simScreen.className = `display-mockup pattern-box h-64 w-full transition-all duration-500 ${stepData.class || ''}`;
+            simScreen.style.backgroundColor = stepData.bg || '';
+            simLabel.textContent = stepData.label;
+
+            // Update Progress Bar
+            const progress = ((currentStepIndex + 1) / steps.length) * 100;
+            simProgress.style.width = `${progress}%`;
+
+            // Advance Index
+            currentStepIndex = (currentStepIndex + 1) % steps.length;
+        }
+
+        document.getElementById('playBtn').addEventListener('click', () => {
+            if (!isPlaying) {
+                isPlaying = true;
+                updateSimulation(); // Run immediately
+                cycleInterval = setInterval(updateSimulation, speedMultiplier);
+            }
+        });
+
+        document.getElementById('pauseBtn').addEventListener('click', () => {
+            isPlaying = false;
+            clearInterval(cycleInterval);
+        });
+
+        // Initialize Cycle Chart
+        const ctxCycle = document.getElementById('cycleChart').getContext('2d');
+        new Chart(ctxCycle, {
+            type: 'doughnut',
+            data: {
+                labels: steps.map(s => s.label),
+                datasets: [{
+                    data: [10, 10, 10, 10, 10, 10], // 10s each
+                    backgroundColor: [
+                        '#94a3b8', // Chess (Slate)
+                        '#a855f7', // Spectrum (Purple)
+                        '#ffffff', // White
+                        '#ef4444', // Red
+                        '#22c55e', // Green
+                        '#3b82f6'  // Blue
+                    ],
+                    borderColor: '#cbd5e1',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ` ${context.label}: 10 Seconds`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // --- Metrology Logic ---
+        const spotContainer = document.getElementById('spot-container');
+        const spotInfo = document.getElementById('spot-info');
+        const btn5 = document.getElementById('btn-5');
+        const btn9 = document.getElementById('btn-9');
+
+        const spots = {
+            'A': { top: '50%', left: '50%', desc: 'Center' },
+            'B': { top: '10%', left: '10%', desc: 'Top Left' },
+            'C': { top: '10%', left: '90%', desc: 'Top Right' },
+            'D': { top: '90%', left: '10%', desc: 'Bottom Left' },
+            'E': { top: '90%', left: '90%', desc: 'Bottom Right' },
+            'F': { top: '10%', left: '50%', desc: 'Top Center' },
+            'G': { top: '50%', left: '10%', desc: 'Left Center' },
+            'H': { top: '50%', left: '90%', desc: 'Right Center' },
+            'I': { top: '90%', left: '50%', desc: 'Bottom Center' },
+        };
+
+        function setSpots(count) {
+            spotContainer.innerHTML = ''; // Clear existing
+            
+            // Toggle Button Styles
+            if (count === 5) {
+                btn5.classList.replace('bg-white', 'bg-blue-600');
+                btn5.classList.replace('text-slate-700', 'text-white');
+                btn5.classList.replace('hover:bg-slate-50', 'hover:bg-blue-700');
+                btn9.classList.replace('bg-blue-600', 'bg-white');
+                btn9.classList.replace('text-white', 'text-slate-700');
+                btn9.classList.replace('hover:bg-blue-700', 'hover:bg-slate-50');
+            } else {
+                btn9.classList.replace('bg-white', 'bg-blue-600');
+                btn9.classList.replace('text-slate-700', 'text-white');
+                btn9.classList.replace('hover:bg-slate-50', 'hover:bg-blue-700');
+                btn5.classList.replace('bg-blue-600', 'bg-white');
+                btn5.classList.replace('text-white', 'text-slate-700');
+                btn5.classList.replace('hover:bg-blue-700', 'hover:bg-slate-50');
+            }
+
+            const keys = count === 5 ? ['A','B','C','D','E'] : ['A','B','C','D','E','F','G','H','I'];
+
+            keys.forEach(key => {
+                const s = spots[key];
+                const el = document.createElement('div');
+                el.className = 'measurement-point';
+                el.style.top = s.top;
+                el.style.left = s.left;
+                el.textContent = key;
+                
+                el.addEventListener('mouseenter', () => {
+                    spotInfo.innerHTML = `<strong>Spot ${key}:</strong> ${s.desc} (${s.left}, ${s.top})`;
+                });
+                el.addEventListener('mouseleave', () => {
+                    spotInfo.textContent = 'Hover over a spot to see its coordinates.';
+                });
+
+                spotContainer.appendChild(el);
+            });
+        }
+
+        // Initialize with 5 spots
+        setSpots(5);
+
+
+        // --- Reporting Chart Logic ---
+        const ctxReport = document.getElementById('reportingChart').getContext('2d');
+        const weeks = Array.from({length: 17}, (_, i) => `W${i}`); // W0 to W16
+        
+        // Generate dummy decay curve
+        const decayData = weeks.map((_, i) => 100 - (i * 0.3) - (Math.random() * 0.5)); 
+
+        new Chart(ctxReport, {
+            type: 'line',
+            data: {
+                labels: weeks,
+                datasets: [{
+                    label: 'Luminance Retention (%)',
+                    data: decayData,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        min: 90,
+                        max: 102,
+                        title: { display: true, text: '% Retention' }
+                    }
+                }
+            }
+        });
+
+        // --- Sidebar Scroll Spy Logic ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const sections = document.querySelectorAll('.content-section');
+            const navLinks = document.querySelectorAll('.sidebar-link');
+
+            function onScroll() {
+                let current = '';
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    const sectionHeight = section.clientHeight;
+                    // Adjust offset for header (approx 120px)
+                    if (window.scrollY >= (sectionTop - 200)) {
+                        current = section.getAttribute('id');
+                    }
+                });
+
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === `#${current}`) {
+                        link.classList.add('active');
+                    }
+                });
+            }
+
+            window.addEventListener('scroll', onScroll);
+        });
+
+        // --- Image Modal Logic ---
+        function openImageModal(src) {
+            const modal = document.getElementById('image-modal');
+            const modalImg = document.getElementById('modal-image');
+            if (modal && modalImg) {
+                modalImg.src = src;
+                modal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden'; // Prevent scrolling
+            }
+        }
+
+        function closeImageModal() {
+            const modal = document.getElementById('image-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                document.body.style.overflow = ''; // Restore scrolling
+            }
+        }
+        
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === "Escape") {
+                closeImageModal();
+            }
+        });
+
+    </script>
+</body>
+</html>
